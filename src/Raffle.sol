@@ -61,7 +61,7 @@ contract Raffle is VRFConsumerBaseV2 {
     uint64 private immutable i_subscriptionId;
     uint32 private immutable i_callbackGasLimit;
 
-    address payable[] private s_players;
+    address payable[] public s_players;
     address private s_recentWinner;
     RaffleState private s_raffleState;
 
@@ -181,5 +181,13 @@ contract Raffle is VRFConsumerBaseV2 {
 
     function getEntranceFee() external view returns (uint256) {
         return i_entranceFee;
+    }
+
+    function getRaffleState() external view returns (RaffleState) {
+        return s_raffleState;
+    }
+
+    function getPlayer(uint256 indexOfPLayer) external view returns (address) {
+        return s_players[indexOfPLayer];
     }
 }
