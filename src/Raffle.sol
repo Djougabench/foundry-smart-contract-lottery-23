@@ -24,6 +24,7 @@ pragma solidity ^0.8.18;
 
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  *@title  A sample Raffle Contract
@@ -55,7 +56,7 @@ contract Raffle is VRFConsumerBaseV2 {
 
     uint256 private immutable i_entranceFee;
     uint256 private immutable i_interval;
-    uint256 private S_lastTimeStamp;
+    uint256 private s_lastTimeStamp;
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
     bytes32 private immutable i_gasLane;
     uint64 private immutable i_subscriptionId;
@@ -68,6 +69,7 @@ contract Raffle is VRFConsumerBaseV2 {
     /**Events */
     event EnteredRaffle(address indexed player);
     event winnerPicked(address indexed winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     constructor(
         uint256 entranceFee,
@@ -84,7 +86,7 @@ contract Raffle is VRFConsumerBaseV2 {
         i_callbackGasLimit = callbackGasLimit;
         i_subscriptionId = subscriptionId;
         s_raffleState = RaffleState.OPEN;
-        S_lastTimeStamp = block.timestamp;
+        s_lastTimeStamp = block.timestamp;
     }
 
     function enterRaffle() external payable {
@@ -94,6 +96,7 @@ contract Raffle is VRFConsumerBaseV2 {
         if (s_raffleState != RaffleState.OPEN) {
             revert Raffle__RaffleNotOpen();
         }
+        console.log("player entered");
         s_players.push(payable(msg.sender));
         //1.Makes migration easier
         //2.Makes front end "indexing" easier
@@ -114,7 +117,7 @@ contract Raffle is VRFConsumerBaseV2 {
     function checkUpkeep(
         bytes memory /*chekData*/
     ) public view returns (bool upkeepNeeded, bytes memory /*performData*/) {
-        bool timeHasPassed = (block.timestamp - S_lastTimeStamp) >= i_interval;
+        bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= i_interval;
         bool isOpen = s_raffleState == RaffleState.OPEN;
         bool hasBalance = address(this).balance > 0;
         bool hasPlayers = s_players.length > 0;
@@ -138,13 +141,15 @@ contract Raffle is VRFConsumerBaseV2 {
 
         s_raffleState = RaffleState.CALCULATING;
 
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane, //gas lane
             i_subscriptionId, // subscription ID funded with LINK
             REQUEST_CONFIRMATIONS, // number of confirmations
             i_callbackGasLimit, // gas limit for callback
-            NUM_WORDS // number of random words
+            NUM_WORDS // number of  random words
         );
+        //Quiz .. is this redudant?
+        emit RequestedRaffleWinner(requestId);
     }
 
     //to have a random number back
@@ -166,7 +171,7 @@ contract Raffle is VRFConsumerBaseV2 {
         s_players = new address payable[](0);
 
         //start the clock over for  a new lotterie
-        S_lastTimeStamp = block.timestamp;
+        s_lastTimeStamp = block.timestamp;
 
         emit winnerPicked(winner);
         //Interactions
@@ -189,5 +194,17 @@ contract Raffle is VRFConsumerBaseV2 {
 
     function getPlayer(uint256 indexOfPLayer) external view returns (address) {
         return s_players[indexOfPLayer];
+    }
+
+    function getRecentWinner() external view returns (address) {
+        return s_recentWinner;
+    }
+
+    function getLengthOfPlayers() external view returns (uint256) {
+        return s_players.length;
+    }
+
+    function getLastTimeStamp() external view returns (uint256) {
+        return s_lastTimeStamp;
     }
 }
